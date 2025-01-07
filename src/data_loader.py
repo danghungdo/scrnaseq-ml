@@ -50,7 +50,7 @@ class DataLoader:
         adata_single = self.pert_data.adata[indexes_to_keep].copy()
 
         # select high-variance genes
-        d = 128  # number of top genes to select
+        d = -1  # number of top genes to select
         gene_variances = adata_single.X.toarray().var(axis=0)
         sorted_indexes = gene_variances.argsort()[::-1]
         top_gene_indexes = sorted_indexes[:d]
