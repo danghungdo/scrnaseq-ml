@@ -6,20 +6,14 @@ from .config import LOGGING_DIR
 
 
 class Classifier:
-    def __init__(self, n_estimators: int = 100, learning_rate: float = 0.1, max_depth: int = 10, random_state: int = 42, **kwargs):
+    def __init__(self, **kwargs):
         print("Initializing model...")
-        self.clf = XGBClassifier(
-            n_estimators=n_estimators,
-            learning_rate=learning_rate,
-            max_depth=max_depth,
-            random_state=random_state,
-            **kwargs
-        )
+        self.clf = XGBClassifier(**kwargs)
 
-    def train(self, train_data: Tuple[np.ndarray, np.ndarray]) -> None:
+    def train(self, train_data: Tuple[np.ndarray, np.ndarray], sample_weights: np.ndarray) -> None:
         print("Training model...")
         X_train, y_train = train_data
-        self.clf.fit(X_train, y_train)
+        self.clf.fit(X_train, y_train, sample_weight=sample_weights)
         print(f"Accuracy on training data: {self.clf.score(X_train, y_train)}")
 
     def evaluate(self, test_data: Tuple[np.ndarray, np.ndarray]) -> None:
@@ -58,3 +52,4 @@ class Classifier:
 
     def predict(self, X: np.ndarray) -> np.ndarray:
         return self.clf.predict(X)
+    
