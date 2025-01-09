@@ -1,49 +1,85 @@
 import optuna
 import numpy as np
-from sklearn.metrics import accuracy_score
-from sklearn.model_selection import cross_val_score, StratifiedKFold, train_test_split
+from sklearn.model_selection import cross_val_score, StratifiedKFold
 from xgboost import XGBClassifier
 from .data_loader import DataLoader
-from .config import HYPERPARAM_CONFIG
+from .config import HYPERPARAM_CONFIG, DATA_LOADER_CONFIG, LOGGING_DIR, PATH
+import json
+import os
+import math
+
 
 class Optimizer:
     def __init__(self, data_loader: DataLoader) -> None:
         self.data_loader = data_loader
+        self.seed = DATA_LOADER_CONFIG["random_seed"]
+        self.logging_dir = LOGGING_DIR
+        self.path_best_hyperparameters = PATH["best_hyperparameters"]
+        self.path_optuna_trials = PATH["optuna_trials"]
+        self.search_space = HYPERPARAM_CONFIG
 
-        
     def objective(self, trial):
         params = {
-            'n_estimators': trial.suggest_int('n_estimators', HYPERPARAM_CONFIG['n_estimators'][0], HYPERPARAM_CONFIG['n_estimators'][1]),
-            'max_depth': trial.suggest_int('max_depth', HYPERPARAM_CONFIG['max_depth'][0], HYPERPARAM_CONFIG['max_depth'][1]),
-            'learning_rate': trial.suggest_float('learning_rate', HYPERPARAM_CONFIG['learning_rate'][0], HYPERPARAM_CONFIG['learning_rate'][1], log=True),
-            'subsample': trial.suggest_float('subsample', HYPERPARAM_CONFIG['subsample'][0], HYPERPARAM_CONFIG['subsample'][1]),
-            'colsample_bytree': trial.suggest_float('colsample_bytree', HYPERPARAM_CONFIG['colsample_bytree'][0], HYPERPARAM_CONFIG['colsample_bytree'][1]),
-            'gamma': trial.suggest_float('gamma', HYPERPARAM_CONFIG['gamma'][0], HYPERPARAM_CONFIG['gamma'][1]),
-            'lambda': trial.suggest_float('lambda', HYPERPARAM_CONFIG['lambda'][0], HYPERPARAM_CONFIG['lambda'][1], log=True),
-            'alpha': trial.suggest_float('alpha', HYPERPARAM_CONFIG['alpha'][0], HYPERPARAM_CONFIG['alpha'][1], log=True),
-            'min_child_weight': trial.suggest_int('min_child_weight', HYPERPARAM_CONFIG['min_child_weight'][0], HYPERPARAM_CONFIG['min_child_weight'][1])
+            "max_depth": trial.suggest_categorical(
+                "max_depth", self.search_space["max_depth"]
+            ),
+            "min_child_weight": trial.suggest_categorical(
+                "min_child_weight", self.search_space["min_child_weight"]
+            ),
+            "subsample": trial.suggest_categorical(
+                "subsample", self.search_space["subsample"]
+            ),
+            "colsample_bytree": trial.suggest_categorical(
+                "colsample_bytree", self.search_space["colsample_bytree"]
+            ),
+            "learning_rate": trial.suggest_categorical(
+                "learning_rate", self.search_space["learning_rate"]
+            ),
         }
-        
-        # skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-        model = XGBClassifier(**params, objective='multi:softmax', eval_metric='mlogloss')
+
+        skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+        model = XGBClassifier(
+            **params, objective="multi:softmax", eval_metric="mlogloss"
+        )
         X_train, y_train = self.data_loader.get_train_data()
-        sample_weights = self.data_loader.sample_weights
-        val_indexes = np.random.choice(len(X_train), int(0.2*len(X_train)), replace=False)
-        X_val, y_val = X_train[val_indexes], y_train[val_indexes]
-        X_train, y_train = np.delete(X_train, val_indexes, axis=0), np.delete(y_train, val_indexes)
-        new_sample_weights = np.delete(sample_weights, val_indexes)
-        model.fit(X_train, y_train, sample_weight=new_sample_weights)
-        preds = model.predict(X_train)
-        # scores = cross_val_score(model, X_train, y_train, cv=skf, scoring='accuracy')
-        return accuracy_score(y_train, preds)
-    
-    def tune_hyperparams(self, n_trials=5):
+        scores = cross_val_score(model, X_train, y_train, cv=skf, scoring="accuracy")
+        return np.mean(scores)
+
+    def tune_hyperparams(self, n_trials=None):
         print("Tuning hyperparameters...")
-        study = optuna.create_study(direction='maximize')
-        study.optimize(self.objective, n_trials=n_trials)
-        
-        print("Best Hyperparams: ", study.best_params)
-        print("Best Accuracy: ", study.best_value)
-        
-        return study.best_params
-        
+
+        if not os.path.exists(self.path_best_hyperparameters) and not os.path.exists(
+            self.path_optuna_trials
+        ):
+
+            sampler = optuna.samplers.GridSampler(self.search_space)
+            n_trials = math.prod([len(i) for i in self.search_space.values()])
+            study = optuna.create_study(direction="maximize", sampler=sampler)
+            study.optimize(self.objective, n_trials=n_trials)
+
+            best_params = study.best_params
+            best_values = study.best_value
+            print("Best Hyperparams: ", best_params)
+            print("Best Accuracy: ", best_values)
+
+            print("saving hyperparameters each trials and best hyperparameters")
+            df = study.trials_dataframe()
+
+            # Save to CSV
+            df.to_csv(self.path_optuna_trials.format(self.logging_dir), index=False)
+
+            # Save best hyperparameters as txt file
+            with open(self.path_best_hyperparameters, "w") as file:
+                json.dump(best_params, file, indent=4)
+
+        else:
+            # Open the JSON file for reading
+            with open(self.path_best_hyperparameters, "r") as file:
+                # Load JSON data from file
+                best_params = json.load(file)
+        print(
+            "Best hyperparameters and trials are saved under {} and {}.".format(
+                self.path_best_hyperparameters, self.path_optuna_trials
+            )
+        )
+        return best_params

@@ -10,7 +10,9 @@ class Classifier:
         print("Initializing model...")
         self.clf = XGBClassifier(**kwargs)
 
-    def train(self, train_data: Tuple[np.ndarray, np.ndarray], sample_weights: np.ndarray) -> None:
+    def train(
+        self, train_data: Tuple[np.ndarray, np.ndarray], sample_weights: np.ndarray
+    ) -> None:
         print("Training model...")
         X_train, y_train = train_data
         self.clf.fit(X_train, y_train, sample_weight=sample_weights)
@@ -22,34 +24,31 @@ class Classifier:
         y_pred = self.clf.predict(X_test)
         print(f"Accuracy: {accuracy_score(y_test, y_pred)}")
         print(f"Confusion matrix: {confusion_matrix(y_test, y_pred)}")
-        print(
-            f"Classification report: {classification_report(y_test, y_pred)}")
+        print(f"Classification report: {classification_report(y_test, y_pred)}")
 
         # logging to a file
         with open(f"{LOGGING_DIR}/evaluation.txt", "w") as f:
             f.write("=== Model Evaluation Results ===\n\n")
-            
+
             # Accuracy
             f.write(f"Accuracy: {accuracy_score(y_test, y_pred):.4f}\n\n")
-            
+
             # Confusion Matrix
             f.write("Confusion Matrix:\n")
             cm = confusion_matrix(y_test, y_pred)
-            f.write(np.array2string(cm, separator=', ', prefix='  '))
+            f.write(np.array2string(cm, separator=", ", prefix="  "))
             f.write("\n\n")
             # save detailed confusion matrix to a file
             np.savetxt(
-                f"{LOGGING_DIR}/confusion_matrix.csv", 
-                cm, 
-                delimiter=',', 
-                fmt='%d'
+                f"{LOGGING_DIR}/confusion_matrix.csv", cm, delimiter=",", fmt="%d"
             )
             # Classification Report
             f.write("Classification Report:\n")
             report = classification_report(y_test, y_pred)
             f.write(report)
-            
 
     def predict(self, X: np.ndarray) -> np.ndarray:
         return self.clf.predict(X)
-    
+
+    def predict_proba(self, X: np.ndarray) -> np.ndarray:
+        return self.clf.predict_proba(X)

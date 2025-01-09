@@ -4,7 +4,7 @@ DATA_LOADER_CONFIG = {
     "shuffle": True,
     "test_split": 0.2,
     "random_seed": 42,
-    "stratify": True
+    "stratify": True,
 }
 
 LOGGING_DIR = "logs"
@@ -19,17 +19,19 @@ LOGGING_DIR = "logs"
 # }
 
 HYPERPARAM_CONFIG = {
-    'n_estimators': (50, 500),
-    'max_depth': (3, 15),
-    'learning_rate': (0.01, 0.3),
-    'subsample': (0.5, 1.0),
-    'colsample_bytree': (0.5, 1.0),
-    'gamma': (0, 10),
-    'lambda': (1e-8, 10.0),
-    'alpha': (1e-8, 10.0),
-    'min_child_weight': (1, 10)
+    "max_depth": [3, 5, 7],
+    "min_child_weight": [1, 3, 5],
+    "subsample": [0.6, 0.8, 1.0],
+    "colsample_bytree": [0.6, 0.8, 1.0],
+    "learning_rate": [0.01, 0.1, 0.3],
 }
 
-
-
-
+PATH = {
+    "dataloader": "data/dataloader.pkl",
+    "best_hyperparameters": "logs/best_hyperparameters.json",
+    "optuna_trials": "logs/optuna_trials.csv",
+    "confusion_matrix": "logs/confusion_matrix.svg",
+    "metrics": "logs/metrics.txt",
+    "auc_roc": "logs/auc_roc.svg",
+    "clf": "data/clf.json",
+}
