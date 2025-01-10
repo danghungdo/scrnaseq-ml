@@ -1,7 +1,7 @@
 # Applied Machine Learning in Perturbation Data
 
 ## Project Overview
-Applied Machine Learning in Genomic Data Science Project: A machine learning approach for classification based on the Norman perturbation dataset. 
+Applied Machine Learning in Genomic Data Science Project: Single-gene Perturbations Classification based on Gene Expression Profiles
 
 ---
 
@@ -41,15 +41,8 @@ python run_pipeline.py
 ```
 
 ### 2. Output
-- Best hyperparameters selected using Hyperparameter tuning.
-- Accuracy, classification report, and confusion matrix printed for evaluation.
-
----
-
-## Notes
-- Replace the dummy dataset in the script with real data if available.
-- Adjust hyperparameters in the `param_grid` section of the script for further optimization.
-- Ensure Conda is installed and configured correctly.
+- Best hyperparameters selected using Hyperparameter tuning (grid search).
+- Accuracy, classification report, confusion matrix, and AUC-ROC curve are saved in the `logs` directory.
 
 ---
 

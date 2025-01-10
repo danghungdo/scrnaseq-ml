@@ -3,20 +3,17 @@ DATA_LOADER_CONFIG = {
     "save_dir": "data",
     "shuffle": True,
     "test_split": 0.2,
-    "random_seed": 42,
-    "stratify": True
+    "stratify": True,
 }
+
+RANDOM_SEED = 42
 
 LOGGING_DIR = "logs"
 
-MODEL_CONFIG = {
-    "n_estimators": 100,
-    "learning_rate": 0.1,
-    "max_depth": 10,
-    "random_state": 42,
-    "objective": "binary:logistic",
-    "eval_metric": "logloss",
+HYPERPARAM_CONFIG = {
+    "max_depth": [5, 7, 9],
+    "min_child_weight": [3, 5, 7],
+    "subsample": [0.6, 0.8, 1.0],
+    "colsample_bytree": [0.6, 0.8, 1.0],
+    "learning_rate": [0.01, 0.1, 0.3],
 }
-
-
-
