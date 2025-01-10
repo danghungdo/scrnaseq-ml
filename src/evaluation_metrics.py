@@ -1,27 +1,22 @@
-from sklearn.metrics import accuracy_score, confusion_matrix
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 from sklearn.metrics import roc_auc_score, roc_curve
 import numpy as np
 from .model import Classifier
 from .data_loader import DataLoader
 import matplotlib.pyplot as plt
-import os
 from .config import LOGGING_DIR
 import seaborn as sns
 from prettytable import PrettyTable
 from sklearn.preprocessing import LabelBinarizer
-import json
-from .config import PATH
 
 
 class EvaluationMetrics:
     def __init__(self, model: Classifier, data_loader: DataLoader):
-
         # get y_pred, y_prob, y_true
         self.X, self.y_true = data_loader.get_test_data()
         self.y_pred = model.predict(self.X)
         self.y_prob = model.predict_proba(self.X)
-        self.y_true = self.y_true
-        self.num_classes = len(set(self.y_true))
+        self.num_classes = data_loader.get_num_classes()
         self.label_name = data_loader.get_label_name()
 
         # metrics for all labels
@@ -29,15 +24,15 @@ class EvaluationMetrics:
         self.confusion_matrix = confusion_matrix(self.y_pred, self.y_true)
 
         # path
-        self.path_confusion_matrix = PATH["confusion_matrix"]
-        self.path_auc_roc = PATH["auc_roc"]
-        self.path_metrics = PATH["metrics"]
+        self.path_confusion_matrix = LOGGING_DIR + "/confusion_matrix"
+        self.path_auc_roc = LOGGING_DIR + "/auc_roc"
+        self.path_metrics = LOGGING_DIR + "/metrics.txt"
 
-    def accuracy_each_class(self):
+    def accuracy_each_class(self) -> np.ndarray:
         # Calculate accuracy score for each class
         return self.confusion_matrix.diagonal() / self.confusion_matrix.sum(axis=1)
 
-    def precision_each_class(self):
+    def precision_each_class(self) -> dict:
         # Calculate precision score for each class
         precision_scores_each_class = {}
         for i in range(len(self.confusion_matrix)):
@@ -48,7 +43,7 @@ class EvaluationMetrics:
 
         return precision_scores_each_class
 
-    def recall_each_class(self):
+    def recall_each_class(self) -> dict:
         # Calculate recall for each class
         recall_scores_each_class = {}
         for i in range(len(self.confusion_matrix)):
@@ -59,7 +54,7 @@ class EvaluationMetrics:
 
         return recall_scores_each_class
 
-    def plot_confustion_matrix(self):
+    def plot_confustion_matrix(self) -> None:
         # plot confusion matrix
         fig = plt.figure(figsize=(16, 14))
         sns.heatmap(
@@ -75,7 +70,8 @@ class EvaluationMetrics:
         plt.ylabel("True Labels")
         plt.xticks(rotation=45)
         plt.yticks(rotation=45)
-        fig.savefig(self.path_confusion_matrix, format="svg", bbox_inches="tight")
+        fig.savefig(self.path_confusion_matrix + ".svg", format="svg", bbox_inches="tight")
+        fig.savefig(self.path_confusion_matrix + ".png", format="png", bbox_inches="tight")
 
     def auc_roc(self):
         # create the figure
@@ -103,11 +99,13 @@ class EvaluationMetrics:
         plt.ylabel("True Positive Rate")
         plt.title("AUC-ROC Curve")
         plt.legend(loc="lower right")
-        fig.savefig(self.path_auc_roc, format="svg", bbox_inches="tight")
+        fig.savefig(self.path_auc_roc + ".svg", format="svg", bbox_inches="tight")
+        fig.savefig(self.path_auc_roc + ".png", format="png", bbox_inches="tight")
 
         return auc_roc_score
 
-    def save_metrics_as_text(self):
+    def evaluate(self) -> None:
+        print("Evaluating model on test data...")
         # Save all metrics as a .txt file
         acc_total = self.accuracy
         cm = self.confusion_matrix
@@ -115,6 +113,7 @@ class EvaluationMetrics:
         precision_labels = self.precision_each_class()
         recall_labels = self.recall_each_class()
         auc_roc_labels = self.auc_roc()
+        report = classification_report(self.y_true, self.y_pred)
         self.plot_confustion_matrix()
 
         # Initialize the text list
@@ -153,3 +152,8 @@ class EvaluationMetrics:
         with open(self.path_metrics, "w") as file:
             # Write the text to the file
             file.write(full_text)
+            file.write("\n")
+            file.write("Classification Report:\n")
+            file.write(report)
+        
+        print("Finish! Check results in folder {}".format(LOGGING_DIR))

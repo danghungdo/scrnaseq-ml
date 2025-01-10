@@ -1,24 +1,21 @@
 import optuna
-import numpy as np
-from sklearn.model_selection import cross_val_score, StratifiedKFold
-from xgboost import XGBClassifier
-from .data_loader import DataLoader
-from .config import HYPERPARAM_CONFIG, DATA_LOADER_CONFIG, LOGGING_DIR, PATH
 import json
 import os
 import math
+import numpy as np
+
+from sklearn.model_selection import cross_val_score, StratifiedKFold
+from xgboost import XGBClassifier
+from .data_loader import DataLoader
+from .config import HYPERPARAM_CONFIG, LOGGING_DIR, RANDOM_SEED
 
 
 class Optimizer:
     def __init__(self, data_loader: DataLoader) -> None:
         self.data_loader = data_loader
-        self.seed = DATA_LOADER_CONFIG["random_seed"]
-        self.logging_dir = LOGGING_DIR
-        self.path_best_hyperparameters = PATH["best_hyperparameters"]
-        self.path_optuna_trials = PATH["optuna_trials"]
         self.search_space = HYPERPARAM_CONFIG
 
-    def objective(self, trial):
+    def objective(self, trial) -> float:
         params = {
             "max_depth": trial.suggest_categorical(
                 "max_depth", self.search_space["max_depth"]
@@ -37,19 +34,19 @@ class Optimizer:
             ),
         }
 
-        skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+        skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=RANDOM_SEED)
         model = XGBClassifier(
             **params, objective="multi:softmax", eval_metric="mlogloss"
         )
         X_train, y_train = self.data_loader.get_train_data()
-        scores = cross_val_score(model, X_train, y_train, cv=skf, scoring="accuracy")
+        scores = cross_val_score(model, X_train, y_train, cv=skf, scoring="balanced_accuracy")
         return np.mean(scores)
 
-    def tune_hyperparams(self, n_trials=None):
+    def tune_hyperparams(self, n_trials: int = None) -> dict:
         print("Tuning hyperparameters...")
 
-        if not os.path.exists(self.path_best_hyperparameters) and not os.path.exists(
-            self.path_optuna_trials
+        if not os.path.exists(LOGGING_DIR + "/best_hyperparameters.json") and not os.path.exists(
+            LOGGING_DIR + "/optuna_trials.csv"
         ):
 
             sampler = optuna.samplers.GridSampler(self.search_space)
@@ -62,24 +59,28 @@ class Optimizer:
             print("Best Hyperparams: ", best_params)
             print("Best Accuracy: ", best_values)
 
-            print("saving hyperparameters each trials and best hyperparameters")
+            print("Saving hyperparameters each trials and best hyperparameters...")
             df = study.trials_dataframe()
 
             # Save to CSV
-            df.to_csv(self.path_optuna_trials.format(self.logging_dir), index=False)
+            df.to_csv(LOGGING_DIR + "/optuna_trials.csv", index=False)
 
             # Save best hyperparameters as txt file
-            with open(self.path_best_hyperparameters, "w") as file:
+            with open(LOGGING_DIR + "/best_hyperparameters.json", "w") as file:
                 json.dump(best_params, file, indent=4)
+            
+            print(
+                "Best hyperparameters and trials are saved under {} and {}.".format(
+                    LOGGING_DIR + "/best_hyperparameters.json",
+                    LOGGING_DIR + "/optuna_trials.csv",
+                )
+            )
 
         else:
             # Open the JSON file for reading
-            with open(self.path_best_hyperparameters, "r") as file:
+            print("Loading best hyperparameters from file...")
+            with open(LOGGING_DIR + "/best_hyperparameters.json", "r") as file:
                 # Load JSON data from file
                 best_params = json.load(file)
-        print(
-            "Best hyperparameters and trials are saved under {} and {}.".format(
-                self.path_best_hyperparameters, self.path_optuna_trials
-            )
-        )
+
         return best_params
